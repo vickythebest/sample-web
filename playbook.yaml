@@ -1,0 +1,61 @@
+- name: Deploy a web application
+  hosts: db_and_web_server1,db_and_web_server2
+  tasks:
+    - name: Install all required dependencies
+      yum: name={{ item }} state=installed
+      with_items:
+        - python
+        - python-setuptools
+        - python-devel
+        - python*-pip
+
+    - name: Install MySQL database
+      yum: name={{ item }} state=installed
+      with_items:
+        - mariadb-server
+
+    - name: Start MySQL service
+      service:
+        name: mariadb
+        state: started
+        enabled: yes
+
+    - name: Create Application Database
+      mysql_db: name=employee_db state=present
+
+    - name: Create Database user
+      mysql_user:
+        name: db_user
+        password: Passw0rd
+        priv: '*.*:ALL'
+        state: present
+        host: '%'
+
+    - name: Install Python Flask dependencies
+      pip:
+        name: '{{ item }}'
+        state: present
+      with_items:
+        - flask
+        - flask-mysql
+
+    - name: Copy source code
+      copy: src=app.py dest=/opt/app.py
+
+    - name: Start Web server
+      shell: "nohup flask run --host=0.0.0.0 &"
+      environment:
+        FLASK_APP: /opt/app.py
+
+    - name: Run Curl command to check the response
+      uri:
+        url: http://192.168.56.105:5000
+
+# below command use to check firewall if you are getting error msg connection refuse
+# service firewalld status
+# firewall-cmd --list
+# sudo firewall-cmd --list-all
+# sudo firewall-cmd --parmanent --zone=public --add-port=3306/tcp
+# firewall-cmd --reload
+# sudo firewall--cmd --parmanent --zone=public --add-port=5000/tcp
+# firewall-cmd --reload
